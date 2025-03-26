@@ -49,16 +49,24 @@ def start(g, i):
 
 instruction.add_event([free, waiting], [busy, instructor], start)
 
-def instructor_break(i):
-    return [SimToken(i, delay=unif(5, 35))]
+def choose(i):
+    percentage = unif(0, 100)
+    if percentage < 70:
+        return [SimToken(i), None]
+    else:
+        return [None, SimToken(i)]
 
-instruction.add_event([free], [break_i], instructor_break)
+instruction.add_event([free], [break_i, free], choose)
+
+# def instructor_break(i):
+#     return [SimToken(i, delay=unif(5, 35))]
+
+# instruction.add_event([break_i], [free], instructor_break)
 
 def instructor_return(i):
     return [SimToken(i)]
 
 instruction.add_event([break_i], [free], instructor_return)
-
 
 def complete(b):
     return [SimToken(b[1])]
