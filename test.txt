@@ -1,0 +1,14 @@
+650,650
+instructor,500,400
+arrival,100,300
+busy,500,300
+left,100,200
+waiting,300,300
+free,100,500
+break,300,600
+time_var,100,100
+arrive,200,300
+start,400,350
+instructor_break,200,600
+instructor_return,400,550
+complete,600,350

@@ -4,83 +4,66 @@ from simpn.reporters import SimpleReporter
 from simpn.visualisation import Visualisation
 import simpn.prototypes as prototype
 
-# Variable Declaration 
+"""
+Variable Declearion 
+"""
 
 lam = 1/30 # Interarrival rate of a student group
 mu = 1/10 # Service rate of an instructor
 
 instruction = SimProblem()
-
-student_groups = instruction.add_var('student_group')
-
-"""
-Initial State -> One instructor and one student group waiting to be assigned
-"""
-
-# Simulation -> Student Group Leave Queue 
-
-left = instruction.add_var('left')
-waiting = instruction.add_var('waiting')
 instructor = instruction.add_var('instructor')
-time_var = instruction.add_var("time")
+
+# Places and Queues 
+
+arrival = instruction.add_var('arrival')
+busy = instruction.add_var('busy')
+gone = instruction.add_var('gone')
+waiting = instruction.add_var('waiting')
+free = instruction.add_var('free')
+break_i = instruction.add_var('break')
+time_var = instruction.add_var("time_var")
 
 instructor.put("i")
 
-prototype.BPMNStartEvent(instruction, [], [waiting], "arrive", lambda: exp(lam))
+"""
+Simulation
+"""
+
+def arrive(g):
+    return [SimToken("g" + str(time_var)), SimToken(g+1, delay=exp(lam))]
+
+instruction.add_event([arrival], [arrival, waiting], arrive)
+
+def start(g, i):
+    return [SimToken((g, i), delay=unif(10, 15))]
+
+instruction.add_event([free, waiting], [busy, instructor], start)
+
+def instructor_break(i):
+    return [SimToken(i, delay=unif(5, 35))]
+
+instruction.add_event([free], [break_i], instructor_break)
+
+def instructor_return(i):
+    return [SimToken(i)]
+
+instruction.add_event([break_i], [free], instructor_return)
 
 
-def leave_condition(t, g1_queue, left_queue):
-    """
-    Condition for a student group to leave the queue.
+def complete(b):
+    return [SimToken(b[1])]
 
-    This function checks whether there is a student group in the queue that has
-    been waiting for more than 10 minutes. If so, it returns True; otherwise, it
-    returns False.
+instruction.add_event([instructor,busy], [], complete)
 
-    Parameters
-    ----------
-    t : float
-        The current time of the simulation.
-    g1_queue : list
-        The list of student groups currently in the queue.
-    left_queue : list
-        The list of student groups that have left the queue.
-    """
+def leave_queue(g):
+    return [SimToken(g)]
 
-    for g in g1_queue:
-        if t - g.time > 10:
-            return True 
-    return False 
+instruction.add_event([waiting], [gone], leave_queue)
 
-def leave_queue(t, g1_queue, left_queue):    
-    """
-    Leave the queue event function.
-
-    This function removes the student group g from g1_queue and puts it in
-    left_queue. It is called when a student group leaves the queue.
-
-    Parameters
-    ----------
-    t : float
-        The current time of the simulation.
-    g1_queue : list
-        A list of student groups waiting to be assigned to an instructor.
-    left_queue : list
-        A list of student groups that have left the queue.
-    """
-
-    for g in g1_queue:
-        if t - g.time >= 10:
-            g1_queue.remove(g)
-            left_queue.append(g)
-
-    return [g1_queue, left_queue]
-
-
-instruction.add_event([time_var, waiting.queue, left.queue],[waiting.queue, left.queue], leave_queue, guard=leave_condition)
-     
-
-# Visualisation
+"""
+Visualisation
+"""
 
 instruction.simulate(10, SimpleReporter())
 
