@@ -23,12 +23,21 @@ waiting = instruction.add_var('waiting')
 free = instruction.add_var('free')
 break_i = instruction.add_var('break')
 time_var = instruction.add_var("time_var")
+served = instruction.add_var("served")
 
 instructor.put("i")
 
 """
 Simulation
 """
+
+# Guards 
+
+def leave_condition(t, g1_queue, left_queue):
+    return any(t - g.time > 10 for g in g1_queue)
+
+
+# Modal Transitions
 
 def arrive(g):
     return [SimToken("g" + str(time_var)), SimToken(g+1, delay=exp(lam))]
@@ -54,12 +63,17 @@ instruction.add_event([break_i], [free], instructor_return)
 def complete(b):
     return [SimToken(b[1])]
 
-instruction.add_event([instructor,busy], [], complete)
+instruction.add_event([instructor,busy], [free, served], complete)
 
-def leave_queue(g):
-    return [SimToken(g)]
+def leave_queue(t, g1_queue, left_queue):
+    for g in g1_queue:
+        if t - g.time >= 10:
+            g1_queue.remove(g)
+            left_queue.append(g)
 
-instruction.add_event([waiting], [gone], leave_queue)
+    return [g1_queue, left_queue]
+
+instruction.add_event([time_var, waiting.queue, gone.queue], [gone], leave_queue, guard=leave_condition)
 
 """
 Visualisation
