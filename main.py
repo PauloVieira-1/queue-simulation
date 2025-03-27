@@ -34,8 +34,7 @@ Simulation
 # Guards 
 
 def leave_condition(t, g1_queue, left_queue):
-    return any(t - g.time > 10 for g in g1_queue)
-
+    return any(t - g.time > 10 and unif(0, 100) <= 5 for g in g1_queue)
 
 # Modal Transitions
 
@@ -49,14 +48,14 @@ def start(g, i):
 
 instruction.add_event([free, waiting], [busy, instructor], start)
 
-def choose(i):
+def choose_break(i):
     percentage = unif(0, 100)
     if percentage < 70:
         return [SimToken(i), None]
     else:
-        return [None, SimToken(i)]
+        return [None, SimToken(i, delay=unif(5, 35))]
 
-instruction.add_event([free], [break_i, free], choose)
+instruction.add_event([free], [break_i, free], choose_break)
 
 # def instructor_break(i):
 #     return [SimToken(i, delay=unif(5, 35))]
@@ -74,8 +73,9 @@ def complete(b):
 instruction.add_event([instructor,busy], [free, served], complete)
 
 def leave_queue(t, g1_queue, left_queue):
+    random = unif(0, 100)
     for g in g1_queue:
-        if t - g.time >= 10:
+        if t - g.time >= 10 and random <= 5:
             g1_queue.remove(g)
             left_queue.append(g)
 
