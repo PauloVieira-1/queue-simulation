@@ -24,6 +24,7 @@ free = instruction.add_var('free')
 break_i = instruction.add_var('break')
 time_var = instruction.add_var("time_var")
 served = instruction.add_var("served")
+instructor_busy = instruction.add_var("instructor_busy")
 
 # TIMES 
 
@@ -43,6 +44,7 @@ free.put([])
 break_i.put([])
 time_var.put(0)
 served.put([])
+instructor_busy.put(False)
 
 
 """
@@ -51,25 +53,51 @@ Simulation
 
 # Guards 
 
-def leave_condition(t, g1_queue, left_queue):
-    """Check if a student group has been waiting for more than 10 minutes."""
+def leave_condition(t, g1_queue, left_queue, i):
+    """
+    Leave condition function.
+
+    This function checks whether there is a student group in the queue that has
+    been waiting for more than 10 minutes. If so, it returns True; otherwise, it
+    returns False.
+
+    Parameters
+    ----------
+    t : float
+        The current time of the simulation.
+    g1_queue : list
+        The list of student groups currently in the queue.
+    left_queue : list
+        The list of student groups that have left the queue.
+    i : str
+        The id of the instructor.
+    """
     return any(t - g.time > 10 and unif(0, 100) <= 5 for g in g1_queue)
 
-def service_guard(g, i):
-    """Check if a student group is in the queue.
+def service_guard(g, i, b):
+    
+    """
+    Service guard function.
+
+    This function checks whether there are any student groups in the waiting
+    queue that can be assigned to an instructor for service.
 
     Parameters
     ----------
     g : list
-        The list of student groups currently in the queue.
+        The list of student groups currently in the waiting queue.
     i : str
         The id of the instructor.
+    b : bool
+        Whether the instructor is currently busy or not.
 
     Returns
     -------
     bool
-        True if there is a student group in the queue, False otherwise.
+        True if there is at least one student group in the waiting queue;
+        otherwise, False.
     """
+
     return len(g) > 0
 
 # Modal Transitions
@@ -100,14 +128,13 @@ def arrive(t, a, g):
 
 instruction.add_event([time_var, arrival, waiting], [arrival, waiting], arrive, name="arrive")
 
-def reneging_event(t, w, L):
+def reneging_event(t, w, L, instructor_busy):
     """
     Reneging event function.
 
-    This function removes students from the waiting queue that have been waiting
-    for more than 10 minutes with a probability of 5%. If there are any students
-    remaining, the event is delayed by 5 time units. Otherwise, the event is
-    delayed by 0 time units.
+    Students leave the queue if they have waited more than 10 minutes.  
+    - If the instructor is **NOT present**, they **always leave**.  
+    - If the instructor **is present**, they leave with a **5% probability**.  
 
     Parameters
     ----------
@@ -117,34 +144,47 @@ def reneging_event(t, w, L):
         The list of student groups currently in the queue.
     L : list
         The list of student groups that have left the queue.
+    instructor_free : bool
+        Whether the instructor is currently free.
 
     Returns
     -------
     list
-        A list of two tokens: the remaining students in the queue and the
-        students that have left the queue.
+        A list of two tokens:  
+        - Remaining students in the queue  
+        - Students that have left  
     """
     
     remaining = []
     leaving = []
-    probability = unif(0, 100)
 
     for token in w:
         waited = t - token["time"]
-        if waited >= 10 and probability <= 5:
-            leaving.append(token)
+        probability = unif(0, 100)  
+
+        if waited >= 10:
+            if not instructor_busy or probability <= 5:  
+                leaving.append(token)
+            else:
+                remaining.append(token)
         else:
             remaining.append(token)
-    delay_time = 5 if remaining else 0
+
+    delay_time = 5 if remaining else 0  
     return [SimToken(remaining, delay=delay_time), SimToken(leaving, delay=0)]
 
-instruction.add_event([time_var, waiting, gone], [waiting, gone], reneging_event, guard=leave_condition, name="reneging_event")
+
+instruction.add_event([time_var, waiting, gone, instructor_busy], 
+                      [waiting, gone], 
+                      reneging_event, 
+                      guard=leave_condition, 
+                      name="reneging_event")
 
 
 
-def start(i, g):
+def start_service(i, waiting_students, instructor_busy):
     """
-    Start event function.
+    Start service event function.
 
     This function starts a new service when a student group arrives at the waiting
     queue and there is a free instructor. The student group is removed from the
@@ -155,22 +195,26 @@ def start(i, g):
     ----------
     i : str
         The id of the instructor.
-    g : list
-        The list of student groups currently in the queue.
+    waiting_students : list
+        The list of student groups currently in the waiting queue.
+    instructor_busy : bool
+        Whether the instructor is currently available (False) or busy (True).
 
     Returns
     -------
     list
-        A list of two tokens: the remaining students in the queue and the student
-        group that is being served.
+        A list of two tokens: the remaining students in the waiting queue and the
+        student group that is being served.
     """
-    if not g:
-        return [SimToken(g, delay=0), SimToken(i, delay=0)]
-    token = g.pop(0)
-    delay_time = unif(5,35)
-    return [SimToken((g, i), delay=delay_time), SimToken(token, delay=delay_time)]
 
-instruction.add_event([free, waiting], [busy, instructor], start, guard=service_guard, name="start")
+    if not waiting_students:
+        return [SimToken(waiting_students, delay=0), SimToken(i, delay=0)]
+    student_group = waiting_students.pop(0)
+    delay_time = exp(1/mu) * 60 
+    instructor_busy = True
+    return [SimToken((waiting_students, i), delay=delay_time), SimToken(student_group, delay=delay_time), SimToken(instructor_busy, delay=delay_time)]
+
+instruction.add_event([free, waiting, instructor_busy], [busy, instructor, instructor_busy], start_service, guard=service_guard, name="start")
 
 def choose_break(i):
     """
@@ -220,7 +264,7 @@ def instructor_return(i):
 
 instruction.add_event([break_i], [free], instructor_return, name="instructor_return")
 
-def end_service(b, i, t, s_times, w_times):
+def end_service(b, i, t, s_times, w_times, instructor_busy):
     """
     End service event function.
 
@@ -254,9 +298,10 @@ def end_service(b, i, t, s_times, w_times):
     service_time = t - group["time"]
     s_times.append(service_time)
     w_times.append(service_time)
-    return [SimToken(group, delay=0), SimToken(i, delay=0)]
+    instructor_busy = False
+    return [SimToken(group, delay=0), SimToken(i, delay=0), SimToken(s_times, delay=0), SimToken(w_times, delay=0), SimToken(instructor_busy, delay=0)]
 
-instruction.add_event([instructor, busy, time_var, service_times, waiting_times], [free, served, service_times, waiting_times], end_service, name="end_service")
+instruction.add_event([instructor, busy, time_var, service_times, waiting_times, instructor_busy], [free, served, service_times, waiting_times, instructor_busy], end_service, name="end_service")
 
 
 """
