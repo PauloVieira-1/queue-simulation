@@ -25,7 +25,17 @@ break_i = instruction.add_var('break')
 time_var = instruction.add_var("time_var")
 served = instruction.add_var("served")
 
-instructor.put("i")
+
+instructor.put("Instructor")
+arrival.put(1)
+busy.put([])
+gone.put([])
+waiting.put([])
+free.put([])
+break_i.put([])
+time_var.put(0)
+served.put([])
+
 
 """
 Simulation
