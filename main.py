@@ -9,7 +9,7 @@ Variable Declearion
 """
 
 lam = 1/30 # Interarrival rate of a student group
-mu = 1/10 # Service rate of an instructor
+mu = 10 # Service rate of an instructor
 
 instruction = SimProblem()
 instructor = instruction.add_var('instructor')
@@ -167,7 +167,7 @@ def start(i, g):
     if not g:
         return [SimToken(g, delay=0), SimToken(i, delay=0)]
     token = g.pop(0)
-    delay_time = exp(1/mu)
+    delay_time = unif(5,35)
     return [SimToken((g, i), delay=delay_time), SimToken(token, delay=delay_time)]
 
 instruction.add_event([free, waiting], [busy, instructor], start, guard=service_guard, name="start")
@@ -195,7 +195,7 @@ def choose_break(i):
     if percentage < 70:
         return [SimToken(i, delay=0), None]
     else:
-        return [None, SimToken(i, delay=unif(5, 35))]
+        return [None, SimToken(i, delay=unif(15, 35))]
 
 instruction.add_event([free], [break_i, free], choose_break)
 
@@ -216,7 +216,7 @@ def instructor_return(i):
     list
         A list of two tokens: the instructor and None.
     """
-    return [SimToken(i, delay=0)]
+    return [SimToken(i, delay=unif(5, 35))]
 
 instruction.add_event([break_i], [free], instructor_return, name="instructor_return")
 
