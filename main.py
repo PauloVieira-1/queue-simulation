@@ -44,7 +44,7 @@ free.put([])
 break_i.put([])
 time_var.put(0)
 served.put([])
-instructor_busy.put(False)
+instructor_busy.put([])
 
 
 """
@@ -102,7 +102,7 @@ def service_guard(g, i, b):
 
 # Modal Transitions
 
-def arrive(t, a, g):
+def arrive(t, a, w):
     """
     Arrive event function.
 
@@ -124,7 +124,8 @@ def arrive(t, a, g):
         A list of two tokens: the new arrival and the incremented arrival count.
     """
     token = {"id": "g" + str(a), "time": t}
-    return [SimToken(token), SimToken(a + 1, delay=exp(1/8))]
+    new_w = w + [token]
+    return [SimToken(a + 1, delay=exp(1/8)), SimToken(new_w, delay=0)]
 
 instruction.add_event([time_var, arrival, waiting], [arrival, waiting], arrive, name="arrive")
 
@@ -308,7 +309,7 @@ instruction.add_event([instructor, busy, time_var, service_times, waiting_times,
 Visualisation
 """
 
-instruction.simulate(10, SimpleReporter())
+instruction.simulate(60, SimpleReporter())
 
 v = Visualisation(instruction, "test.txt")
 v.show()
