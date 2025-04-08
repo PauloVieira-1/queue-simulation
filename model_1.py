@@ -185,13 +185,13 @@ Simulation Execution
 """
 
 print("Starting simulation...")
-# instruction.simulate(max_sim_time, SimpleReporter())
+instruction.simulate(max_sim_time, SimpleReporter())
 
-class MyReporter(SimpleReporter):
-    def callback(self, timed_binding):
-        print(timed_binding)
+# class MyReporter(SimpleReporter):
+#     def callback(self, timed_binding):
+#         print(timed_binding)
 
-instruction.simulate(max_sim_time, MyReporter())
+# instruction.simulate(max_sim_time, MyReporter())
 
 """
 Visualization
