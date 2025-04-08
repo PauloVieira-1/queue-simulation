@@ -9,7 +9,8 @@ Variable Declaration
 
 # Rates (per minute)
 lam = 1/30  # Interarrival rate of student groups (1 every 30 minutes on average)
-mu = 1/10   # Service rate (10 minutes per group on average)
+service_duration =  unif(15, 30)  # Service rate of instructors (15-30 minutes on average)
+break_duration = unif(5, 15)  # Break rate of instructors (5-15 minutes on average)
 max_sim_time = 60 * 3  # 3 hours
 
 instruction = SimProblem()
@@ -63,8 +64,8 @@ def arrive(t, a, w):
     token = {"id": f"g{a}", "time": t}
     new_w = w + [token]
     return [
-        SimToken(a + 1, delay=exp(lam)),  # Next arrival
-        SimToken(new_w, delay=0)          # Updated waiting queue
+        SimToken(a + 1, delay=exp(lam)),
+        SimToken(new_w, delay=0)          
     ]
 
 instruction.add_event([time_var, arrival, waiting], [arrival, waiting], arrive, name="arrive")
@@ -109,63 +110,60 @@ def service_guard(waiting_groups, busy_groups):
 
 def start_service(free_instructor, waiting_groups):
     """Start serving a student group"""
-    if not waiting_groups:
-        return [
-            SimToken(waiting_groups, delay=0),
-            SimToken([], delay=0)
-        ]
+    if free_instructor != "Instructor" or not waiting_groups:
+        return [SimToken(free_instructor, delay=0),
+                SimToken(waiting_groups, delay=0),
+                SimToken([], delay=0)]
     
-    group = waiting_groups.pop(0)
-    service_duration = exp(mu)
-
+    group = waiting_groups[0]  
     return [
-        SimToken(waiting_groups, delay=0),  
+        SimToken(None, delay=0),  
+        SimToken(waiting_groups[1:], delay=0),  
         SimToken([group], delay=service_duration)  
     ]
 
-
+# Update the event with correct input/output mapping
 instruction.add_event(
     [free, waiting],
-    [waiting, busy],
+    [free, waiting, busy],
     start_service,
-    guard=service_guard,
+    guard=lambda f, w: f == "Instructor" and len(w) > 0,
     name="start_service"
 )
 
-def end_service(busy_groups, served_groups):
+def end_service(busy_groups, served_groups, free_instructor):
+    """Complete service and return instructor"""
+    if not busy_groups:
+        return [SimToken(busy_groups, delay=0),
+                SimToken(served_groups, delay=0),
+                SimToken(free_instructor, delay=0)]
     
-    if not busy_groups:  
-        return [SimToken([], delay=0), SimToken([], delay=0), SimToken("Instructor", delay=0)]  
-
     group = busy_groups[0]
-    
     return [
-        SimToken([], delay=0),  # Empty busy queue
-        SimToken(served_groups + [group], delay=0),
-        SimToken("Instructor", delay=0)  # Free instructor
+        SimToken([], delay=0), 
+        SimToken(served_groups + [group], delay=0), 
+        SimToken("Instructor", delay=0) 
     ]
 
-# Register the end_service event
+# Update the event definition with proper guard
 instruction.add_event(
-    [busy, served],
-    [free, served, free],
+    [busy, served, free],
+    [busy, served, free],
     end_service,
-    guard=lambda busy_groups, served_groups: len(busy_groups) > 0,
+    guard=lambda b, s, f: len(b) > 0, 
     name="end_service"
 )
 
-
-
-
-def should_take_break(instructor):
-    """70% chance to take a break"""
-    if random() <= 0.7:
-        break_duration = unif(15, 35)
-        return [None, SimToken("instructor", delay=break_duration)]
-    return [SimToken(instructor, delay=0), None]
+def should_take_break(free_instructor, current_time):
+    if free_instructor == "Instructor" and random() <= 0.7:  
+        print(f"Instructor taking break at {current_time:.2f} for {break_duration:.2f} mins")
+        return [SimToken(None, delay=0),
+                SimToken("Instructor", delay=break_duration)]
+    return [SimToken(free_instructor, delay=0),
+            SimToken([], delay=0)]
 
 instruction.add_event(
-    [free],
+    [free, time_var],
     [free, break_i],
     should_take_break,
     name="choose_break"
