@@ -198,7 +198,7 @@ Visualization
 """
 
 print("\nGenerating visualization...")
-v = Visualisation(instruction, "test.txt")
+v = Visualisation(instruction, "test_2.txt")
 v.show()
-v.save_layout("test.txt")
+v.save_layout("test_2.txt")
 print("Simulation complete!")
