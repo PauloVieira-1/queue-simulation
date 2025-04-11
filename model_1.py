@@ -1,16 +1,13 @@
 from simpn.simulator import SimProblem, SimToken
 from random import expovariate as exp, uniform as unif, random
-from simpn.reporters import SimpleReporter, Reporter
+from simpn.reporters import SimpleReporter, Reporter, ProcessReporter
 from simpn.visualisation import Visualisation
 
 """
 Variable Declaration 
 """
 
-# Rates (per minute)
 lam = 1/30  # Interarrival rate of student groups (1 every 30 minutes on average)
-service_duration =  unif(15, 30)  # Service rate of instructors (15-30 minutes on average)
-break_duration = unif(5, 15)  # Break rate of instructors (5-15 minutes on average)
 max_sim_time = 60 * 3  # 3 hours
 
 instruction = SimProblem()
@@ -119,7 +116,7 @@ def start_service(free_instructor, waiting_groups):
     return [
         SimToken(None, delay=0),  
         SimToken(waiting_groups[1:], delay=0),  
-        SimToken([group], delay=service_duration)  
+        SimToken([group], delay=unif(15, 30))  
     ]
 
 # Update the event with correct input/output mapping
@@ -155,6 +152,7 @@ instruction.add_event(
 )
 
 def should_take_break(free_instructor, current_time):
+    break_duration = unif(5, 15)
     if free_instructor == "Instructor" and random() <= 0.7:  
         print(f"Instructor taking break at {current_time:.2f} for {break_duration:.2f} mins")
         return [SimToken(None, delay=0),
@@ -187,12 +185,6 @@ Simulation Execution
 print("Starting simulation...")
 instruction.simulate(max_sim_time, SimpleReporter())
 
-# class MyReporter(SimpleReporter):
-#     def callback(self, timed_binding):
-#         print(timed_binding)
-
-# instruction.simulate(max_sim_time, MyReporter())
-
 """
 Visualization
 """
@@ -203,3 +195,31 @@ v = Visualisation(instruction, "test_1.txt")
 v.show()
 v.save_layout("test_1.txt")
 print("Simulation complete!")
+
+# instruction.store_checkpoint("initial_state")  
+
+# average_cycle_times = []
+# NR_REPLICATIONS = 50
+# SIMULATION_DURATION = 40000
+# WARMUP_TIME = 100
+
+
+
+# for _ in range(NR_REPLICATIONS):
+#     reporter = ProcessReporter(WARMUP_TIME)
+#     instruction.restore_checkpoint("initial_state")  
+#     instruction.simulate(SIMULATION_DURATION, reporter)
+
+#     if reporter.nr_completed > 0:
+#         average_cycle_times.append(reporter.total_cycle_time / reporter.nr_completed)
+
+# if average_cycle_times:
+#     avg_cycle_time = sum(average_cycle_times) / len(average_cycle_times)
+#     print(f"Average cycle time: {avg_cycle_time:.2f}")
+
+#     print("Cycle times:")
+#     for cycle_time in average_cycle_times:
+#         print(f"{cycle_time:.2f}")
+# else:
+#     print("No valid cycle times recorded.")
+
